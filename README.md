@@ -35,8 +35,18 @@ Validates a return request against the 30-day window and auto-generates a return
 
 ## Architecture
 
-Open the [visual project page](./index.html#architecture) for the flow derived from the sanitized export.
+The diagram below represents the sanitized template flow. External services, credentials, and environment-specific identifiers must be configured before execution.
 
+```mermaid
+flowchart TD
+    A["Return request webhook"] --> B["Normalize order and customer data"]
+    B --> C["Calculate days since order"]
+    C --> D{"Within 30-day window?"}
+    D -->|Yes| E["Generate return label"]
+    E --> F["Email label to customer"]
+    F --> G["Log Return Pending in Airtable"]
+    D -->|No| H["Send policy decline email"]
+```
 
 ## Workflow
 
