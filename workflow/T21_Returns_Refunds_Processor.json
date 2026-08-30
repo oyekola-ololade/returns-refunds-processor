@@ -1,0 +1,436 @@
+{
+  "name": "T21_Returns_Refunds_Processor",
+  "nodes": [
+    {
+      "id": "c8e4d880-d715-4ce5-b3f0-32e8237a8b94",
+      "name": "Note_d906c68a",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        50,
+        50
+      ],
+      "parameters": {
+        "content": "Created by Oyekola Ololade\nhttps://www.linkedin.com/in/ololade-oyekola-5b1797397/\nn8n Template Library - Gumroad",
+        "width": 300,
+        "height": 100,
+        "color": 4
+      }
+    },
+    {
+      "id": "fc3ead3f-fc7a-4d3e-9731-dd0a49dcf697",
+      "name": "Return Request Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ],
+      "webhookId": "c292d28d-ba87-48fb-92f0-7fb565b9228e",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "return-request",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "f79af96d-f180-41e4-80b5-86b406424d3a",
+      "name": "Extract Return",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        450,
+        300
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "750e749b-b3b1-48e1-b5dc-709ca235bb14",
+              "name": "order_id",
+              "value": "={{ $json.body.order_id }}",
+              "type": "string"
+            },
+            {
+              "id": "cd80c9e3-8460-4e58-934b-ca768bb66395",
+              "name": "reason",
+              "value": "={{ $json.body.reason }}",
+              "type": "string"
+            },
+            {
+              "id": "088c7658-15d6-43ec-8808-992a5a4fa510",
+              "name": "order_date",
+              "value": "={{ $json.body.order_date }}",
+              "type": "string"
+            },
+            {
+              "id": "298721ab-a44c-4aa5-9a9d-6f452d5bfff3",
+              "name": "customer_email",
+              "value": "={{ $json.body.email }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "5b24c704-80a4-48de-8d51-a493cbde4593",
+      "name": "Validate Window",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        650,
+        300
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "3669b568-257e-45dd-b1a1-ad3e34befd5e",
+              "name": "days_since_order",
+              "value": "={{ Math.floor(($now - new Date($json.order_date)) / (1000 * 60 * 60 * 24)) }}",
+              "type": "string"
+            },
+            {
+              "id": "4e07e0fa-03c4-4a6f-9616-c0d1615071bd",
+              "name": "valid",
+              "value": "={{ $json.days_since_order <= 30 }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "c097625c-c6be-4175-ba04-bf98ec35f67f",
+      "name": "Within 30 Days?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        850,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cd0d8bcb-ceed-4a0e-8eb9-98a3295e2a07",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "e280f758-60f3-446f-b115-7fcf1705672c",
+      "name": "Generate Return Label",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1050,
+        200
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "YOUR_PDF_SERVICE_URL",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_PDF_API_KEY"
+            }
+          ]
+        },
+        "options": {},
+        "sendBody": true,
+        "contentType": "json",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "type",
+              "value": "return_label"
+            },
+            {
+              "name": "order_id",
+              "value": "={{ $json.order_id }}"
+            },
+            {
+              "name": "customer",
+              "value": "={{ $json.customer_email }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "dbf904cd-8cc1-4599-a400-e1e16fc581e9",
+      "name": "Send Return Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1250,
+        200
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.sendgrid.com/v3/mail/send",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SENDGRID_KEY"
+            }
+          ]
+        },
+        "options": {},
+        "sendBody": true,
+        "contentType": "json",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "personalizations",
+              "value": "[{\"to\": [{\"email\": \"{{ $json.customer_email }}\"}]}]"
+            },
+            {
+              "name": "from_email",
+              "value": "{\"email\": \"returns@yourstore.com\"}"
+            },
+            {
+              "name": "subject",
+              "value": "Return Approved"
+            },
+            {
+              "name": "content",
+              "value": "[{\"type\": \"text/html\", \"value\": \"<p>Your return is approved! Use the attached label.</p>\"}]"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "94f7e270-a622-4dc7-8896-d1480a4d7113",
+      "name": "Update CRM Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1250,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.airtable.com/v0/YOUR_BASE_ID/Returns",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_AIRTABLE_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {},
+        "sendBody": true,
+        "contentType": "json",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "fields",
+              "value": "{\"Order_ID\": \"{{ $json.order_id }}\", \"Status\": \"Return Pending\", \"Reason\": \"{{ $json.reason }}\", \"Expected_Refund_Date\": \"{{ $now.plus({days: 7}).toISO() }}\", \"Customer_Email\": \"{{ $json.customer_email }}\"}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "7e21c7c4-b947-4b4c-b8c2-76c83a2c7748",
+      "name": "Send Rejection Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1050,
+        400
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.sendgrid.com/v3/mail/send",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SENDGRID_KEY"
+            }
+          ]
+        },
+        "options": {},
+        "sendBody": true,
+        "contentType": "json",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "personalizations",
+              "value": "[{\"to\": [{\"email\": \"{{ $json.customer_email }}\"}]}]"
+            },
+            {
+              "name": "from_email",
+              "value": "{\"email\": \"returns@yourstore.com\"}"
+            },
+            {
+              "name": "subject",
+              "value": "Return Request Declined"
+            },
+            {
+              "name": "content",
+              "value": "[{\"type\": \"text/plain\", \"value\": \"Your return request is outside our 30-day window.\"}]"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "636f0b83-8bfa-4282-9109-2e065917e10a",
+      "name": "End",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1450,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Return Request Webhook": {
+      "main": [
+        [
+          {
+            "node": "Extract Return",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Return": {
+      "main": [
+        [
+          {
+            "node": "Validate Window",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Window": {
+      "main": [
+        [
+          {
+            "node": "Within 30 Days?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Within 30 Days?": {
+      "main": [
+        [
+          {
+            "node": "Generate Return Label",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Rejection Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Return Label": {
+      "main": [
+        [
+          {
+            "node": "Send Return Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Return Email": {
+      "main": [
+        [
+          {
+            "node": "Update CRM Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update CRM Status": {
+      "main": [
+        [
+          {
+            "node": "End",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Rejection Email": {
+      "main": [
+        [
+          {
+            "node": "End",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "Gumroad",
+    "Production",
+    "Template",
+    "Oyekola Ololade"
+  ],
+  "pinData": {},
+  "staticData": null
+}
